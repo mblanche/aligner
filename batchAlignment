@@ -1,13 +1,16 @@
+#!/n/site/inst/Linux-x86_64/sys/bin/perl
 use strict;
 use warnings;
 use File::Basename;
 use File::Path qw(make_path remove_tree);
-
+use POSIX qw/strftime/;
 use Getopt::Long;
 use Pod::Usage;
+use Cwd;
+use File::Spec::Functions;
 
 our ($man,$help,$debug,@prog_args,$Force);
-our (@dirs,$ebwt,$tx_idx);
+our (@dirs,$ebwt,$tx_idx,$DESTDIR,);
 our ($cpu);
 
 ## Careful... This is not a great idea... 
@@ -18,15 +21,29 @@ MAIN:{
   init();
   testIndex();
   my %res = getSample2Files();
+  my $ori_dir = cwd;
+  my $res_dir = prepResDir();
+  chdir($res_dir);
   qsub_align(%res);
+  chdir $ori_dir;
+  print("Results will be found in $res_dir\n");
   exit 0;
 }
 
-## delete simlink if exists
-# unlink "$bam_dir/${exp}.bam" if (-l "$bam_dir/${exp}.bam");
-# symlink("$ENV{PWD}/$aln_dir/$exp/accepted_hits.bam","$bam_dir/${exp}.bam");
-# print STDERR "Indexing the bam file $bam_dir/${exp}.bam\n";
-# system("samtools index $bam_dir/${exp}.bam");
+ ## delete simlink if exists
+ # unlink "$bam_dir/${exp}.bam" if (-l "$bam_dir/${exp}.bam");
+ # symlink("$ENV{PWD}/$aln_dir/$exp/accepted_hits.bam","$bam_dir/${exp}.bam");
+ # print STDERR "Indexing the bam file $bam_dir/${exp}.bam\n";
+ # system("samtools index $bam_dir/${exp}.bam");
+
+sub prepResDir{
+  my $aln_dir = "$DESTDIR/batchAlignment";
+  make_path($aln_dir) unless -e $aln_dir && -d $aln_dir;
+  
+  my $exp_dir = "$aln_dir/".strftime('aln_%Y-%m-%d_%H:%M:%S',localtime);
+  make_path($exp_dir);
+  return($exp_dir);
+}
 
 sub testIndex{
   my $ori_tx_idx = $tx_idx;
@@ -65,6 +82,8 @@ sub getSample2Files {
   my %res2;
   
   for my $dir (@dirs){
+    $dir = File::Spec->rel2abs($dir);
+    
     my ($csv,@rest) = glob "$dir/*.csv";
     die " there is more than one CSV file in $dir->[0]" if @rest;
     
@@ -77,7 +96,7 @@ sub getSample2Files {
       my @line = split /,/;
       $res{$line[0]} = $line[2];
     }
-    my @fastq = glob "${dir}*[ACGT].fastq.gz";
+    my @fastq = map{File::Spec->rel2abs($_)} glob "${dir}*[ACGT].fastq.gz";
     
     my %excluded = map{$_,1} @excluded if @excluded;
     
@@ -113,7 +132,7 @@ sub qsub_align{
     $align   .= " $ebwt";
     my $fastq = join(",",@{$res{$exp}});
         
-    my $com = "qsub -j y -o $sge_out -q test-mar22 -N _$exp -V -cwd -b y '$align $fastq'";
+    my $com = "qsub -pe orte 8 -m beas -M mab\@stowers.org -j y -o $sge_out -q test-mar22 -N _$exp -V -cwd -b y '$align $fastq'";
     print "$com\n\n";
     
     next if $debug;
@@ -126,29 +145,27 @@ sub init {
   my $filename = basename($0);
   @prog_args = ($filename,@ARGV);
 
-  GetOptions('debug'         => \$debug,
-	     'help|?'        => \$help,
-	     'man'           => \$man,
+  GetOptions('debug'                 => \$debug,
+	     'help|?'                => \$help,
+	     'man'                   => \$man,
 	     
 	     'directories=s{,}'      => \@dirs,
 	     'bowtie_index=s'        => \$ebwt,
 	     'transcriptome-index=s' => \$tx_idx,
-	     
-	     'excluded=s{,}'            => \@excluded,
-	     'cpu=i'     => \$cpu,
+	     'destdir=s'             => \$DESTDIR,
+	     'excluded=s{,}'         => \@excluded,
+	     'cpu=i'                 => \$cpu,
 
 	    ) or pod2usage(1);
 
-  if ($help || !@dirs){
+  if ($help || !(@dirs && $ebwt && $tx_idx)){
     pod2usage(-exitstatus => 0, -verbose => 2);
   }elsif ($man){
     pod2usage(-exitstatus => 0, -verbose => 0);
   }
 
   $cpu ||= 8;
-  $tx_idx ||=  "$ENV{HOME}/Genomes/bowtie_indexes/tophat_tx/Drosophila_melanogaster.BDGP5.71.min.tc";
-  $ebwt ||= "$ENV{HOME}/Genomes/bowtie_indexes/bwt2/Drosophila_melanogaster.BDGP5.71.min";
-
+  $DESTDIR ||= $ENV{HOME};
   print STDERR "##########RUNNING IN DEBUGING MODE##########\n" if $debug;
 }
 

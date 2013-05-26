@@ -1,0 +1,26 @@
+/n/local/stage/tophat/tophat_2.0.8/segment_juncs: /lib64/libz.so.1: no version information available (required by /n/local/stage/tophat/tophat_2.0.8/segment_juncs)
+segment_juncs v2.0.8 (3864)
+---------------------------
+[samopen] SAM header is present: 13 sequences.
+Loading reference sequences...
+	Loading 2L...done
+	Loading 2LHet...done
+	Loading 2R...done
+	Loading 2RHet...done
+	Loading 3L...done
+	Loading 3LHet...done
+	Loading 3R...done
+	Loading 3RHet...done
+	Loading 4...done
+	Loading X...done
+>> Performing segment-search:
+Loading left segment hits...
+open: No such file or directory
+Warning: couldn't open file TopHat_aln/Starved3/tmp/left_kept_reads.bam
+open: No such file or directory
+Warning: couldn't open file TopHat_aln/Starved3/tmp/left_kept_reads.bam
+open: No such file or directory
+Warning: couldn't open file TopHat_aln/Starved3/tmp/left_kept_reads.bam
+open: No such file or directory
+Warning: couldn't open file TopHat_aln/Starved3/tmp/left_kept_reads.bam
+Error: cannot open TopHat_aln/Starved3/tmp/left_kept_reads.bam for reading

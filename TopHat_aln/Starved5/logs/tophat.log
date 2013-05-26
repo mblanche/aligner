@@ -1,0 +1,37 @@
+
+[2013-05-26 10:37:27] Beginning TopHat run (v2.0.8)
+-----------------------------------------------
+[2013-05-26 10:37:27] Checking for Bowtie
+		  Bowtie version:	 2.1.0.0
+[2013-05-26 10:37:27] Checking for Samtools
+		Samtools version:	 0.1.18.0
+[2013-05-26 10:37:27] Checking for Bowtie index files
+[2013-05-26 10:37:27] Checking for Bowtie index files
+[2013-05-26 10:37:27] Checking for reference FASTA file
+	Warning: Could not find FASTA file /home/mab/Genomes/bowtie_indexes/bwt2/Drosophila_melanogaster.BDGP5.71.min.fa
+[2013-05-26 10:37:27] Reconstituting reference FASTA file from Bowtie index
+  Executing: /n/local/bin/bowtie2-inspect /home/mab/Genomes/bowtie_indexes/bwt2/Drosophila_melanogaster.BDGP5.71.min > TopHat_aln/Starved5/tmp/Drosophila_melanogaster.BDGP5.71.min.fa
+[2013-05-26 10:37:41] Generating SAM header for /home/mab/Genomes/bowtie_indexes/bwt2/Drosophila_melanogaster.BDGP5.71.min
+	format:		 fastq
+	quality scale:	 phred33 (default)
+[2013-05-26 10:37:41] Reading known junctions from GTF file
+[2013-05-26 10:37:46] Preparing reads
+	 left reads: min. length=50, max. length=50, 1250 kept reads (0 discarded)
+[2013-05-26 10:37:46] Using pre-built transcriptome index..
+[2013-05-26 10:37:48] Mapping left_kept_reads to transcriptome Drosophila_melanogaster.BDGP5.71.min.tc with Bowtie2 
+/n/local/stage/tophat/tophat_2.0.8/bam2fastx: /lib64/libz.so.1: no version information available (required by /n/local/stage/tophat/tophat_2.0.8/bam2fastx)
+/n/local/stage/tophat/tophat_2.0.8/fix_map_ordering: /lib64/libz.so.1: no version information available (required by /n/local/stage/tophat/tophat_2.0.8/fix_map_ordering)
+[2013-05-26 10:37:55] Resuming TopHat pipeline with unmapped reads
+[2013-05-26 10:37:55] Mapping left_kept_reads.m2g_um to genome Drosophila_melanogaster.BDGP5.71.min with Bowtie2 
+/n/local/stage/tophat/tophat_2.0.8/bam2fastx: /lib64/libz.so.1: no version information available (required by /n/local/stage/tophat/tophat_2.0.8/bam2fastx)
+/n/local/stage/tophat/tophat_2.0.8/fix_map_ordering: /lib64/libz.so.1: no version information available (required by /n/local/stage/tophat/tophat_2.0.8/fix_map_ordering)
+/n/local/stage/tophat/tophat_2.0.8/bam2fastx: /lib64/libz.so.1: no version information available (required by /n/local/stage/tophat/tophat_2.0.8/bam2fastx)
+[2013-05-26 10:37:56] Mapping left_kept_reads.m2g_um_seg1 to genome Drosophila_melanogaster.BDGP5.71.min with Bowtie2 (1/2)
+/n/local/stage/tophat/tophat_2.0.8/fix_map_ordering: /lib64/libz.so.1: no version information available (required by /n/local/stage/tophat/tophat_2.0.8/fix_map_ordering)
+[2013-05-26 10:37:57] Mapping left_kept_reads.m2g_um_seg2 to genome Drosophila_melanogaster.BDGP5.71.min with Bowtie2 (2/2)
+/n/local/stage/tophat/tophat_2.0.8/fix_map_ordering: /lib64/libz.so.1: no version information available (required by /n/local/stage/tophat/tophat_2.0.8/fix_map_ordering)
+[2013-05-26 10:37:58] Searching for junctions via segment mapping
+[2013-05-26 10:38:10] Retrieving sequences for splices
+[2013-05-26 10:38:20] Indexing splices
+	[FAILED]
+Error: Splice sequence indexing failed with err =1

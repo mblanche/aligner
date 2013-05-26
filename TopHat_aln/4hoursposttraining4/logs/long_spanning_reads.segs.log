@@ -1,0 +1,10 @@
+/n/local/stage/tophat/tophat_2.0.8/long_spanning_reads: /lib64/libz.so.1: no version information available (required by /n/local/stage/tophat/tophat_2.0.8/long_spanning_reads)
+long_spanning_reads v2.0.8 (3864)
+--------------------------------------------
+Opening /dev/null for reading
+[samopen] SAM header is present: 13 sequences.
+Loading reference sequences...
+        reference sequences loaded.
+Loading junctions...done
+Loading deletions...done
+Loading insertions...done

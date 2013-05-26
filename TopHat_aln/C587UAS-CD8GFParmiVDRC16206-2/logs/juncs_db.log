@@ -1,0 +1,17 @@
+/n/local/stage/tophat/tophat_2.0.8/juncs_db: /lib64/libz.so.1: no version information available (required by /n/local/stage/tophat/tophat_2.0.8/juncs_db)
+juncs_db v2.0.8 (3864)
+---------------------------
+	Loading 2L...done
+	Loading 2LHet...done
+	Loading 2R...done
+	Loading 2RHet...done
+	Loading 3L...done
+	Loading 3LHet...done
+	Loading 3R...done
+	Loading 3RHet...done
+	Loading 4...done
+	Loading X...done
+	Loading XHet...done
+	Loading YHet...done
+	Loading dmel_mitochondrion_genome...done
+	Loading ...done
