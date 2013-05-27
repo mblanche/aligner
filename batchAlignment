@@ -27,7 +27,10 @@ MAIN:{
   chdir($res_dir);
   qsub_align(%res);
   chdir $ori_dir;
-  printf("Aligments was done in  %d hours and %d mins\n",int($seq/(60*60),$sec % (60*60));
+  
+  my $end =time();
+  my $sec = $end - $start;
+  printf("Aligments was done in  %d hours and %d mins\n",int($sec/(60*60)),$sec % (60*60));
   print("Results will be found in $res_dir\n");
   exit 0;
 }
