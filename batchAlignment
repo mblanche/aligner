@@ -19,6 +19,7 @@ our $aligner = 'tophat';
 
 MAIN:{
   init();
+  my $start = time();
   testIndex();
   my %res = getSample2Files();
   my $ori_dir = cwd;
@@ -26,6 +27,7 @@ MAIN:{
   chdir($res_dir);
   qsub_align(%res);
   chdir $ori_dir;
+  printf("Aligments was done in  %d hours and %d mins\n",int($seq/(60*60),$sec % (60*60));
   print("Results will be found in $res_dir\n");
   exit 0;
 }
