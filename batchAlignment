@@ -10,8 +10,8 @@ use Cwd;
 use File::Spec::Functions;
 
 our ($man,$help,$debug,@prog_args,$Force);
-our (@dirs,$ebwt,$tx_idx,$DESTDIR,);
-our ($cpu);
+our (@dirs,$ebwt,$tx_idx,$DESTDIR,@sub_select);
+our ($cpu,$queue);
 
 ## Careful... This is not a great idea... 
 our (@excluded); 
@@ -29,12 +29,6 @@ MAIN:{
   print("Results will be found in $res_dir\n");
   exit 0;
 }
-
- ## delete simlink if exists
- # unlink "$bam_dir/${exp}.bam" if (-l "$bam_dir/${exp}.bam");
- # symlink("$ENV{PWD}/$aln_dir/$exp/accepted_hits.bam","$bam_dir/${exp}.bam");
- # print STDERR "Indexing the bam file $bam_dir/${exp}.bam\n";
- # system("samtools index $bam_dir/${exp}.bam");
 
 sub prepResDir{
   my $aln_dir = "$DESTDIR/batchAlignment";
@@ -73,8 +67,8 @@ sub testIndex{
     }
   }
   
-  die "Can't find $ori_tx_idx\n" unless $tx_idx;
-  die "Can't find $ori_ebwt\n" unless $ebwt;
+  die "Can't find tohat transcript index $ori_tx_idx\n" unless $tx_idx;
+  die "Can't find bowtie2 transcript index $ori_ebwt\n" unless $ebwt;
   
 }
 
@@ -112,6 +106,12 @@ sub getSample2Files {
       }
     }
   }
+
+  if (@sub_select){
+    my %sub = map{$_=>1} @sub_select;
+    %res2 = map{$_=>$res2{$_}} grep{exists $sub{$_}} keys %res2;
+  }
+  
   return %res2
 }
 
@@ -122,6 +122,7 @@ sub qsub_align{
   my $sge_out = "SGE_out";
   make_path($aln_dir,$sge_out);
   
+  my @exps;
   for my $exp (keys %res) {
     print STDERR "Aligning $exp\n";
     
@@ -131,14 +132,30 @@ sub qsub_align{
     $align   .= " -o $aln_dir/$exp";
     $align   .= " $ebwt";
     my $fastq = join(",",@{$res{$exp}});
-        
-    my $com = "qsub -pe orte 8 -m beas -M mab\@stowers.org -j y -o $sge_out -q test-mar22 -N _$exp -V -cwd -b y '$align $fastq'";
+    
+    push @exps, "_$exp";
+    my $com = "qsub";
+    $com   .= " -pe orte $cpu";
+    $com   .= " -j y -o $sge_out";
+    $com   .= " -q $queue";
+    $com   .= " -N $exps[$#exps]";
+    $com   .= " -V";
+    $com   .= " -cwd";
+    $com   .= " -b y '$align $fastq'";
     print "$com\n\n";
     
     next if $debug;
-    my $res = system $com;
-    print $res,"\n";
+    system $com;
   }
+
+  ### Create a qrsh dependent on the submited job waiting to join
+  ### Prevents from returning before the alignments are done
+  print "Waiting on jobs to finish\n";
+  my $end = 'qrsh';
+  $end   .= ' -now y';
+  $end   .= ' -hold_jid '.join ",",@exps;
+  $end   .= " 'echo Done!'";
+  system $end;
 }
 
 sub init {
@@ -153,8 +170,12 @@ sub init {
 	     'bowtie_index=s'        => \$ebwt,
 	     'transcriptome-index=s' => \$tx_idx,
 	     'destdir=s'             => \$DESTDIR,
+	     
 	     'excluded=s{,}'         => \@excluded,
+	     'sub_selection=s{,}'    => \@sub_select,
+	     
 	     'cpu=i'                 => \$cpu,
+	     'queue=s'               => \$queue,
 
 	    ) or pod2usage(1);
 
@@ -164,8 +185,10 @@ sub init {
     pod2usage(-exitstatus => 0, -verbose => 0);
   }
 
-  $cpu ||= 8;
+  $cpu     ||= 8;
+  $queue   ||= 'all.q';
   $DESTDIR ||= $ENV{HOME};
+  
   print STDERR "##########RUNNING IN DEBUGING MODE##########\n" if $debug;
 }
 
@@ -174,4 +197,5 @@ __END__
 
 example:
 
-perl alignSeq_SGS.pl --dir test --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc
+perl alignSeq_SGS.pl --dir test --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc --sub C587UAS-CD8GFPmaelVDRC100907-1 C587UAS-CD8GFParmiVDRC16206-3
+
