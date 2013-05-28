@@ -1,4 +1,4 @@
-#!/n/site/inst/Linux-x86_64/sys/bin/perl
+#!/usr/bin/perl
 use strict;
 use warnings;
 use File::Basename;
