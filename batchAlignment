@@ -30,7 +30,7 @@ MAIN:{
   
   my $end =time();
   my $sec = $end - $start;
-  printf("Aligments was done in  %d hours and %d mins\n",int($sec/(60*60)),$sec % (60*60));
+  printf("Aligments was done in  %d hours,%d mins and %d seconds\n",int($sec/(60*60)),($sec/60)%60,$sec%60);
   print("Results will be found in $res_dir\n");
   exit 0;
 }
@@ -151,6 +151,7 @@ sub qsub_align{
     
     next if $debug;
     system $com;
+    print "============>>>\n\n";
   }
 
   ### Create a qrsh dependent on the submited job waiting to join
@@ -166,6 +167,10 @@ sub qsub_align{
 sub init {
   my $filename = basename($0);
   @prog_args = ($filename,@ARGV);
+  print("Running as:\n",
+	join(" ",@prog_args),"\n",
+	">>>>>>\n\n"
+       );
 
   GetOptions('debug'                 => \$debug,
 	     'help|?'                => \$help,
@@ -202,5 +207,7 @@ __END__
 
 example:
 
-perl alignSeq_SGS.pl --dir test --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc --sub C587UAS-CD8GFPmaelVDRC100907-1 C587UAS-CD8GFParmiVDRC16206-3
+batchAlignment --dir test --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc
+
+batchAlignment --dir test --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc --sub C587UAS-CD8GFPmaelVDRC100907-1 C587UAS-CD8GFParmiVDRC16206-3
 
