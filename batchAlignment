@@ -211,3 +211,4 @@ batchAlignment --dir test --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans
 
 batchAlignment --dir test --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc --sub C587UAS-CD8GFPmaelVDRC100907-1 C587UAS-CD8GFParmiVDRC16206-3
 
+nohup batchAlignment --cpu 32 --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc --dir /data/Si/jsg/C0TD0ACXX/ /data/Si/jsg/C0TNYACXX/ /data/Si/jsg/C11LJACXX/ /data/Si/jsg/D10KJACXX/ &
