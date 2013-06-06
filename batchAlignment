@@ -79,7 +79,11 @@ Then, the fastq file(s) will be passed to tophat and multiple alignment jobs wil
 parallel environment allowing shared memory (all slot assing to a job has to reside on a single node, look for 
 a parallel environment using the B<allocation_rules> = $pe_slots or integers >= then your requested CPU number.
 
-=head1 EXAMPLE
+The results will be saved indivually named subdirecories using the sample named inside the TopHat_aln directories.
+The --dest-dir can be use to define a location to save the results, otherwise, the ~/batchAligment direcory
+will be created and each individual runs saved with the local time of the run as name.
+
+=head1 EXAMPLES
 
 ./batchAlignment --dir test --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc
 
@@ -87,7 +91,7 @@ a parallel environment using the B<allocation_rules> = $pe_slots or integers >= 
 
 nohup ssh lepus './batchAlignment --cpu 8 --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc --dir /data/Si/jsg/C0TD0ACXX/ /data/Si/jsg/C0TNYACXX/ /data/Si/jsg/C11LJACXX/ /data/Si/jsg/D10KJACXX/' &
 
-./batchAlignment --cpu 8 --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc --dir /n/analysis/Si/jsg/MOLNG-150/C0TNYACXX/ /n/analysis/Si/jsg/MOLNG-194/D10KJACXX /n/analysis/Si/jsg/MOLNG-194/C0TD0ACXX/ /n/analysis/Si/jsg/MOLNG-194/C11LJACXX/
+./batchAlignment --dryrun --cpu 8 --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc --dir /n/analysis/Si/jsg/MOLNG-150/C0TNYACXX/ /n/analysis/Si/jsg/MOLNG-194/D10KJACXX /n/analysis/Si/jsg/MOLNG-194/C0TD0ACXX/ /n/analysis/Si/jsg/MOLNG-194/C11LJACXX/
 
 =cut
 
@@ -282,7 +286,7 @@ sub init {
 	     'dryrun'                => \$dryrun
 	    ) or pod2usage(1);
 
-  if ($help || !(@dirs && $ebwt){
+  if ($help || !(@dirs && $ebwt)){
     pod2usage(-exitstatus => 0, -verbose => 2);
   }elsif ($man){
     pod2usage(-exitstatus => 0, -verbose => 0);
