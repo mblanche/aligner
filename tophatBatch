@@ -2,13 +2,13 @@
 
 =pod
 
-=head1 batchAlignment
+=head1 tophatBatch
 
   takes SIMR Lims directory and send fastq from samples for alignment in parallel using SGE
 
 =head1 SYNOPSIS
 
-  batchAlignment [options] 
+  tophatBatch [options] 
                  [--directories flowcell_1 flowcell_2...]
                  [--transcriptome-index aGenome_known_tc_tophat_idx | --GTF GTF/GFF_file]
                  [--bowtie2 aGenome_bowtie2_idx]
@@ -85,13 +85,13 @@ will be created and each individual runs saved with the local time of the run as
 
 =head1 EXAMPLES
 
-./batchAlignment --dir test --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc
+./tophatBatch --dir test --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc
 
-./batchAlignment --dir test --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc --sub C587UAS-CD8GFPmaelVDRC100907-1 C587UAS-CD8GFParmiVDRC16206-3
+./tophatBatch --dir test --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc --sub C587UAS-CD8GFPmaelVDRC100907-1 C587UAS-CD8GFParmiVDRC16206-3
 
-nohup ssh lepus './batchAlignment --cpu 8 --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc --dir /data/Si/jsg/C0TD0ACXX/ /data/Si/jsg/C0TNYACXX/ /data/Si/jsg/C11LJACXX/ /data/Si/jsg/D10KJACXX/' &
+nohup ssh lepus './tophatBatch --cpu 8 --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc --dir /data/Si/jsg/C0TD0ACXX/ /data/Si/jsg/C0TNYACXX/ /data/Si/jsg/C11LJACXX/ /data/Si/jsg/D10KJACXX/' &
 
-./batchAlignment --dryrun --cpu 8 --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc --dir /n/analysis/Si/jsg/MOLNG-150/C0TNYACXX/ /n/analysis/Si/jsg/MOLNG-194/D10KJACXX /n/analysis/Si/jsg/MOLNG-194/C0TD0ACXX/ /n/analysis/Si/jsg/MOLNG-194/C11LJACXX/
+./tophatBatch --dryrun --cpu 8 --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc --dir /n/analysis/Si/jsg/MOLNG-150/C0TNYACXX/ /n/analysis/Si/jsg/MOLNG-194/D10KJACXX /n/analysis/Si/jsg/MOLNG-194/C0TD0ACXX/ /n/analysis/Si/jsg/MOLNG-194/C11LJACXX/
 
 =cut
 
@@ -130,7 +130,7 @@ MAIN:{
 }
 
 sub prepResDir{
-  my $aln_dir = "$DESTDIR/batchAlignment";
+  my $aln_dir = "$DESTDIR/tophatBatch";
   make_path($aln_dir) unless -e $aln_dir && -d $aln_dir;
   
   my $exp_dir = "$aln_dir/".strftime('aln_%Y-%m-%d_%H:%M:%S',localtime);
