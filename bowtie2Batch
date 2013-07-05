@@ -77,13 +77,13 @@ otherwise, the ./bowtieBatch_DD/MM/YY:H:M:S directory will be created and will s
 =head1 EXAMPLES
 
 B<Dry Run>: Printing what will be run without runing it
-~/scripts/aligner/bowtieBatch --dryrun --bowtie Drosophila_melanogaster.BDGP5.71.min --dir /n/analysis/Blanchette/sha/MOLNG-61/C05HTACXX /n/analysis/Blanchette/sha/MOLNG-61/C0K08ACXX --destdir Sex_n_Tudor'
+~/scripts/aligner/bowtie2Batch --dryrun --bowtie Drosophila_melanogaster.BDGP5.71.min --dir /n/analysis/Blanchette/sha/MOLNG-61/C05HTACXX /n/analysis/Blanchette/sha/MOLNG-61/C0K08ACXX --destdir Sex_n_Tudor'
 
 B<Running>:
-~/scripts/aligner/bowtieBatch --bowtie Drosophila_melanogaster.BDGP5.71.min --dir /n/analysis/Blanchette/sha/MOLNG-61/C05HTACXX /n/analysis/Blanchette/sha/MOLNG-61/C0K08ACXX --destdir Sex_n_Tudor'
+~/scripts/aligner/bowtie2Batch --bowtie Drosophila_melanogaster.BDGP5.71.min --dir /n/analysis/Blanchette/sha/MOLNG-61/C05HTACXX /n/analysis/Blanchette/sha/MOLNG-61/C0K08ACXX --destdir Sex_n_Tudor'
 
 B<debugging>
-~/scripts/aligner/bowtieBatch --bowtie Drosophila_melanogaster.BDGP5.71.min --dir /n/analysis/Blanchette/sha/MOLNG-61/C05HTACXX --destdir temp --debug
+~/scripts/aligner/bowtie2Batch --bowtie Drosophila_melanogaster.BDGP5.71.min --dir /n/analysis/Blanchette/sha/MOLNG-61/C05HTACXX --destdir temp --debug`
 
 =cut
 
@@ -190,7 +190,7 @@ sub qsub_align{
     push @fastqs,grep{/$exp\.\d+$/} readdir($dh);
     closedir $dh;
   }
-  
+
   ## This loops will run untill there is no more item in @fastqs
   ## Their is a test to make sure all fastq files exists as bams
   do {
@@ -210,11 +210,12 @@ sub qsub_align{
       closedir $dh;
     }
     
-    @fastqs = grep{!exists $bams{"$_.bam"} } @fastqs;
+    @fastqs = grep{!exists $bams{"$_.sam"} } @fastqs;
     @fastqs = '' if $dryrun;
   } while (@fastqs);
   
   #mergeBams(%fastq_dir);
+  #sortBams(%fastq_dir);
   
   ### Cleanup
   ##remove_tree(dirname($fastq_dir{$_})) for keys %fastq_dir;
@@ -237,7 +238,9 @@ sub createAlnJobs {
     $align   .= " -p1";
     $align   .= " $extra";
     $align   .= " $fastq_dir{$exp}/$f";
-    $align   .= " |samtools view -S -b - |samtools sort -o -f - temp > $bam_dir/$f.bam";
+    #$align   .= " |samtools view -S -b - > $bam_dir/$f.bam";
+    $align   .= " > $bam_dir/$f.sam";
+    
     $jobs{$f} = $align;
   }
   return(%jobs)
@@ -249,13 +252,27 @@ sub mergeBams {
   my %jobs;
   for my $exp (keys %fastq_dir){
     my $bam_dir = "$fastq_dir{$exp}/bam";
-    my $final_bam = "$DESTDIR/$exp.bam";
-    $jobs{$exp} = "samtools merge -f - $bam_dir/*.bam|samtools sort -o - tmp >$final_bam";
+    my $final_bam = "$bam_dir/${exp}_merged.bam";
+    $jobs{$exp} = "samtools merge -f - $bam_dir/*.bam > $final_bam";
   }
   print "Merging the bamfiles\n>>>>>>>>>>\n\n";
   spinQsub(%jobs);
 }
 
+
+sub sortBams {
+  my %fastq_dir = @_;
+
+  my %jobs;
+  for my $exp (keys %fastq_dir){
+    my $bam_dir = "$fastq_dir{$exp}/bam";
+    my $merged_bam = "$bam_dir/${exp}_merged.bam";
+    my $final_bam = "$DESTDIR/${exp}.bam";
+    $jobs{$exp} = "samtools sort -o $merged_bam tmp >$final_bam";
+  }
+  print "Sorting and Saving the final bamfiles\n>>>>>>>>>>\n\n";
+  spinQsub(%jobs);
+}
 
 sub splitFile {
   my %res = @_;
