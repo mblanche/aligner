@@ -58,7 +58,7 @@ Prints the manual page and exits.
 
 Name and location of the directory where the final bam files will be located
 
-=item B<-dryrun>
+=item B<--dryrun>
 
 Prints the jobs that will be run without exuting them
 
@@ -76,10 +76,10 @@ SGE queue to use (Def: all.q)
 
 =item B<-->
 
-Additional paramter to pass to bowtie. Will be taken literally
+Additional paramter to pass to bowtie. Will be taken literally. Need to be encloseed in double quotes with internal double quotes properly escaped.
 For instance:
 
--- '-N 2 -k5 --ignore-quals'
+-- "-N 2 -k5 --ignore-quals"
 
 will be added as is to the bowtie parameter list. Currenlty, bowtie2 is run with no extra arguments.
 
@@ -108,6 +108,7 @@ B<Running>:
 B<debugging>
 ~/scripts/aligner/bowtie2Batch --bowtie Drosophila_melanogaster.BDGP5.71.min --dir /n/analysis/Blanchette/sha/MOLNG-61/C05HTACXX --destdir temp --debug
 
+~/scripts/aligner/bowtie2Batch --bowtie Drosophila_melanogaster.BDGP5.71.min --dir test  --destdir temp
 =cut
 
 use strict;
@@ -242,6 +243,11 @@ sub qsub_align{
   
   ### Cleanup
   remove_tree(dirname($fastq_dir{$_})) for keys %fastq_dir;
+  
+  print ">>>>> Indexing the bam files\n>>>>>>>>>>\n\n";
+  my %jobs = indexBams(\%fastq_dir,$DESTDIR);
+  spinQsub(\%jobs,'index') unless $debug;
+  
 }
 
 sub createAlnJobs {
@@ -253,14 +259,16 @@ sub createAlnJobs {
     my ($exp) = ($f =~ /(.+)\.\d+$/);
     
     my $bam_dir = "$fastq_dir{$exp}/bam";
-    make_path($bam_dir);
+    make_path($bam_dir) unless $dryrun;
     
-    my $align = "$aligner";
-    $align   .= " -x $ebwt";
-    $align   .= " -p1";
-    $align   .= " $extra";
-    $align   .= " $fastq_dir{$exp}/$f";
-    $align   .= " |samtools view -S -b - |samtools sort -o - temp > $bam_dir/$f.bam";
+    my $align = join(" ",
+		     "$aligner",
+		     "-x $ebwt",
+		     "-p1",
+		     "$extra",
+		     "$fastq_dir{$exp}/$f",
+		     "|samtools view -S -b - |samtools sort -o - temp > $bam_dir/$f.bam"
+		    );
     
     $jobs{$f} = $align;
   }
@@ -274,24 +282,15 @@ sub mergeBams {
   for my $exp (keys %fastq_dir){
     my $bam_dir = "$fastq_dir{$exp}/bam";
     my $final_bam = "$DESTDIR/${exp}.bam";
-    $jobs{$exp} = "samtools merge -f - $bam_dir/*.bam > $final_bam";
+    my @bams = glob "$bam_dir/*.bam";
+    if (scalar @bams > 1){
+      $jobs{$exp} = "samtools merge -f - $bam_dir/*.bam > $final_bam";
+    } else {
+      $jobs{$exp} = "mv $bam_dir/*.bam $final_bam";
+    }
   }
   print ">>>> Merging the bamfiles\n>>>>>>>>>>\n\n";
   spinQsub(\%jobs,'merge') unless $debug;
-}
-
-sub sortBams {
-  my %fastq_dir = @_;
-
-  my %jobs;
-  for my $exp (keys %fastq_dir){
-    my $bam_dir = "$fastq_dir{$exp}/bam";
-    my $merged_bam = "$bam_dir/${exp}_merged.bam";
-    my $final_bam = "$DESTDIR/${exp}.bam";
-    $jobs{$exp} = "samtools sort -o $merged_bam tmp >$final_bam";
-  }
-  print ">>>> Sorting and Saving the final bamfiles\n>>>>>>>>>>\n\n";
-  spinQsub(%jobs, 'sort') unless $debug;
 }
 
 sub splitFile {
@@ -303,19 +302,17 @@ sub splitFile {
   for my $exp (keys %res) {
     my $tmp_dir = "$DESTDIR/$exp/tmp";
     $fastq_dirs{$exp} =  $tmp_dir;
+    make_path($tmp_dir) unless $dryrun;
     
-    make_path($tmp_dir);
-    my $fastq = join(",",@{$res{$exp}});
-    
-    my $job = "split";
-    
+    my $job = "split -l 10000000 -d -a4";
+
     ## Testing wether we deall with gzip or plain file (well... by the extension...)
     my @gz = grep {/\.gz$/} @{$res{$exp}};
-    
-    if (!@gz){
-      $job .= "split @gz";
+    unless (@gz){
+      $job .= "$job @{$res{$exp}}";
     } elsif (scalar @gz == scalar @{$res{$exp}}){
-      $job    = "gunzip -c $fastq | $job -l 10000000 -d -a4 - $tmp_dir/$exp.";
+      my $fastqs = join(",",@gz);
+      $job = "gunzip -c $fastqs |  $job - $tmp_dir/$exp.";
     } else {
       print STDERR "Can't deal with a mixture of .gz and plain text fastq file";
       next;
@@ -327,31 +324,35 @@ sub splitFile {
   return(%fastq_dirs);
 }
 
+sub indexBams {
+  my %res = %{shift()};
+  my $bam_dir = shift;
+  my %jobs = map{($_,"samtools index $bam_dir/$_.bam")} keys %res;
+  return %jobs;
+}
 
 sub spinQsub {
   my %jobs = %{shift()};
   my $type = shift();
-  
   $type ||= '';
-    
   
   my $sge_out = "$DESTDIR/SGE_out";
-  make_path($sge_out);
+  make_path($sge_out) unless $dryrun;
   
   my (@job_ids,$i);
   for my $exp (keys %jobs){
-    
-    my $com = "qsub";
-    #$com   .= " -pe $pe $cpu";
-    $com   .= " -l mem_free=4G";
-    $com   .= " -j y -o $sge_out";
-    $com   .= " -q $queue";
-    $com   .= " -N ${type}_$exp";
-    $com   .= " -V";
-    $com   .= " -cwd";
-    $com   .= " -terse";
-    $com   .= " -b y";
-    $com   .= " '$jobs{$exp}'";
+    my $com = join(" ",
+		   "qsub",
+		   "-l mem_free=3G",
+		   "-j y -o $sge_out",
+		   "-q $queue",
+		   "-N ${type}_$exp",
+		   "-V",
+		   "-cwd",
+		   "-terse",
+		   "-b y",
+		   "'$jobs{$exp}'"
+		   );
     
     print "$com\n";
     print "============>>>\n";
@@ -361,19 +362,18 @@ sub spinQsub {
     open my $qsub,"-|",$com;
     while (<$qsub>){chomp;push @job_ids,$_};
     close $qsub;
-
   }
-  
   return if $dryrun;
-  
   ### Create a qrsh dependent on the submited job waiting to join
   ### Prevents from returning before the alignments are done
   print "Waiting on jobs to finish\n";
-  my $end = 'qrsh';
-  $end   .= ' -now y';
-  $end   .= ' -hold_jid '.join ",",@job_ids;
-  $end   .= " 'echo Done!'";
-  system $end;
+  my $end = join(" ",
+		 "qrsh",
+		 "-now y",
+		 "-hold_jid ".join(",",@job_ids),
+		 "'echo Done!'"
+		);
+    system $end;
 }
 
 sub init {
@@ -390,15 +390,12 @@ sub init {
 	     
 	     'directories=s{,}'      => \@dirs,
 	     'bowtie2=s'             => \$ebwt,
-	     'extra=s'               => \$extra,
 	     'destdir=s'             => \$DESTDIR,
 	     
 	     'excluded=s{,}'         => \@excluded,
 	     'sub_selection=s{,}'    => \@sub_select,
 	     
-	     #'cpu=i'                 => \$cpu,
 	     'queue=s'               => \$queue,
-	     #'pe=s'                  => \$pe,
 	     'dryrun'                => \$dryrun
 	    ) or pod2usage(1);
 
@@ -408,13 +405,11 @@ sub init {
     pod2usage(-exitstatus => 0, -verbose => 0);
   }
 
-  #$cpu     ||= 4;
   $queue   ||= 'all.q';
-  #$pe      ||= 'by_node';
 
   $extra = join(' ',@ARGV);
   
-  $DESTDIR ||= strftime('bowtieBatch_%Y-%m-%d_%H:%M:%S',localtime);
+  $DESTDIR ||= strftime('bowtieBatch_%Y-%m-%d_%H%M%S',localtime);
   make_path($DESTDIR) unless (-e $DESTDIR && -d $DESTDIR) || $dryrun;
   
   print STDERR "##########RUNNING IN DEBUGING MODE##########\n" if $debug;
