@@ -172,12 +172,16 @@ sub getSample2Files {
     
     open FH, $csv;
     my($filename, $dir, $suffix) = fileparse($csv);
-    my %res;
+    my ($f_i,$s_i,%res);
     while (<FH>){
-      next if $. == 1;
-    chomp;
+      chomp;
       my @line = split /,/;
-      $res{$line[0]} = $line[2];
+       if($. == 1){
+	 ($f_i) = grep{$line[$_] eq 'output'} 0..$#line;
+	 ($s_i) = grep{$line[$_] eq 'sample name'} 0..$#line;
+	 next;
+       }
+      $res{$line[$f_i]} = $line[$s_i];
     }
     my @fastq = map{File::Spec->rel2abs($_)} glob "${dir}*[ACGT].fastq.gz";
     
