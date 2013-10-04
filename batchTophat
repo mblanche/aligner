@@ -24,6 +24,7 @@
   --cpu             number of CPU per tophat jobs (Def: 4)
   --queue           SGE queue to use (Def: all.q)
   --pe              parallel environement (Def: by_node)
+  --email           will send an email when individual qsub submision are terminated
 
   --dryrun          print the jobs that will be sent to SGE
 
@@ -77,6 +78,10 @@ is set at 4 cpu (half the dual core)
 
 Prints the jobs that will be run without exuting them
 
+=item B<-email user@email.org>
+
+if specificied, will send an email to user@email.org at the end of each qsub submission
+
 =back
 
 =head1 DESCRIPTION
@@ -96,13 +101,13 @@ will be created and each individual runs saved with the local time of the run as
 
 =head1 EXAMPLES
 
-./batchTophat --dir test --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc --dest temp
+./batchTophat --dir test --bowtie Drosophila_melanogaster.BDGP5.73.min  --trans Drosophila_melanogaster.BDGP5.73.min.tc --dest temp
 
-./batchTophat --dir test --bowtie Drosophila_melanogaster.BDGP5.71.min  --trans Drosophila_melanogaster.BDGP5.71.min.tc --sub C587UAS-CD8GFPmaelVDRC100907-1 C587UAS-CD8GFParmiVDRC16206-3 --dest temp
+./batchTophat --dir test --bowtie Drosophila_melanogaster.BDGP5.73.min  --trans Drosophila_melanogaster.BDGP5.73.min.tc --sub C587UAS-CD8GFPmaelVDRC100907-1 C587UAS-CD8GFParmiVDRC16206-3 --dest temp
 
-./batchTophat --dryrun --cpu 4 --bowtie Drosophila_melanogaster.BDGP5.71.min --trans Drosophila_melanogaster.BDGP5.71.min.tc --dir /n/analysis/Si/jsg/MOLNG-150/C0TNYACXX/ /n/analysis/Si/jsg/MOLNG-194/D10KJACXX /n/analysis/Si/jsg/MOLNG-194/C0TD0ACXX/ /n/analysis/Si/jsg/MOLNG-194/C11LJACXX/ -dest ~/aln/Si_memory_analysis
+./batchTophat --dryrun --cpu 4 --bowtie Drosophila_melanogaster.BDGP5.73.min --trans Drosophila_melanogaster.BDGP5.73.min.tc --dir /n/analysis/Si/jsg/MOLNG-150/C0TNYACXX/ /n/analysis/Si/jsg/MOLNG-194/D10KJACXX /n/analysis/Si/jsg/MOLNG-194/C0TD0ACXX/ /n/analysis/Si/jsg/MOLNG-194/C11LJACXX/ -dest ~/aln/Si_memory_analysis
 
-~/scripts/aligner/batchTophat  --bowtie Drosophila_melanogaster.BDGP5.71.min --trans Drosophila_melanogaster.BDGP5.71.min.tc --dir /n/analysis/Blanchette/sha/MOLNG-61/C05HTACXX /n/analysis/Blanchette/sha/MOLNG-61/C0K08ACXX --destdir Sex_n_Tudor
+~/scripts/aligner/batchTophat  --bowtie Drosophila_melanogaster.BDGP5.73.min --trans Drosophila_melanogaster.BDGP5.73.min.tc --dir /n/analysis/Blanchette/sha/MOLNG-61/C05HTACXX /n/analysis/Blanchette/sha/MOLNG-61/C0K08ACXX --destdir Sex_n_Tudor
 
 =cut
 
@@ -117,23 +122,18 @@ use Cwd;
 use File::Spec::Functions;
 
 our ($man,$help,$debug,$dryrun,@prog_args);
-our (@dirs,$ebwt,$tx_idx,$gtf,$DESTDIR,@sub_select,@excluded,$extra);
+our (@dirs,$ebwt,$tx_idx,$gtf,$DESTDIR,@sub_select,@excluded,$extra,$email);
 our ($cpu,$queue,$pe);
 
 our $aligner = 'tophat';
 
 MAIN:{
   init();
-  my $start = time();
   testIndex();
   my %res = getSample2Files();
 
   qsub_align(%res);
-
   
-  my $end =time();
-  my $sec = $end - $start;
-  printf("Aligments was done in  %d hours,%d mins and %d seconds\n",int($sec/(60*60)),($sec/60)%60,$sec%60) unless $dryrun;
   print("Results will be found in $DESTDIR\n") unless $dryrun;
   exit 0;
 }
@@ -166,7 +166,7 @@ sub testIndex{
     }
   }
   
-  die "Can't find tohat transcript index $ori_tx_idx\n" unless $tx_idx;
+  die "Can't find tophat transcript index $ori_tx_idx\n" unless $tx_idx;
   die "Can't find bowtie2 transcript index $ori_ebwt\n" unless $ebwt;
   
 }
@@ -223,7 +223,7 @@ sub qsub_align{
   my %jobs = createAlnJobs(\%res);
   ## Sending the alignment to the SGE queue
   print ">>> Aligning the fasq files\n>>>>>>>>>>\n\n";
-  spinQsub(\%jobs,'align') unless $debug;
+  my %alnJID = spinQsub(\%jobs,'align') unless $debug | $test;
 
   my $bam_dir = "$DESTDIR/bam";
   make_path($bam_dir) unless $dryrun;
@@ -231,7 +231,7 @@ sub qsub_align{
   symlink("../tophat_aln/$_/accepted_hits.bam","$bam_dir/$_.bam") for keys %jobs;
   
   %jobs = indexBams(\%res,$bam_dir);
-  spinQsub(\%jobs,'index') unless $debug;
+  my %idxJID = spinQsub(\%jobs,'index',\%alnJID) unless $debug;
 }
 
 sub indexBams {
@@ -269,6 +269,7 @@ sub createAlnJobs {
 sub spinQsub {
   my %jobs = %{shift()};
   my $type = shift();
+  my %holders = %{shift()} if @_;
   
   $type ||= '';
     
@@ -276,10 +277,12 @@ sub spinQsub {
   my $sge_out = "$DESTDIR/SGE_out";
   make_path($sge_out) unless $dryrun;
   
-  my (@job_ids,$i);
+  my (%job_ids,$i);
   for my $exp (keys %jobs){
     
     my $com = "qsub";
+    $com   .= " -hold_jid ".join(",",@{$holders{$exp}}) if exists($holders{$exp});
+    $com   .= " -m e -M $email" if $email;
     $com   .= " -l mem_free=4G";
     $com   .= " -j y -o $sge_out";
     $com   .= " -pe $pe $cpu";
@@ -297,21 +300,12 @@ sub spinQsub {
     next if $dryrun;
     
     open my $qsub,"-|",$com;
-    while (<$qsub>){chomp;push @job_ids,$_};
+    while (<$qsub>){chomp;push @{$job_ids{$exp}},$_};
     close $qsub;
-
   }
   
-  return if $dryrun;
+  return(%job_ids);
   
-  ### Create a qrsh dependent on the submited job waiting to join
-  ### Prevents from returning before the alignments are done
-  print "Waiting on jobs to finish\n";
-  my $end = 'qrsh';
-  $end   .= ' -now y';
-  $end   .= ' -hold_jid '.join ",",@job_ids;
-  $end   .= " 'echo Done!'";
-  system $end;
 }
 
 sub init {
@@ -338,6 +332,7 @@ sub init {
 	     'cpu=i'                 => \$cpu,
 	     'queue=s'               => \$queue,
 	     'pe=s'                  => \$pe,
+	     'email=s'               => \$email,
 	     'dryrun'                => \$dryrun
 	    ) or pod2usage(1);
 
