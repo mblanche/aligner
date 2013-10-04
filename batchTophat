@@ -18,6 +18,8 @@
   --help            brief help message
   --man             full documentation
 
+  --paired          if using paired-end reads (***UNDER DEVELOPMENT***)
+
   --destdir          destination dir to save the results (Def: ~/batchAlignement/aln_timeStamp)
   --sub_selection   smaller list of sample to use
   --exluded         sample to remove from the job
@@ -131,7 +133,7 @@ use Cwd;
 use File::Spec::Functions;
 
 our ($man,$help,$debug,$dryrun,@prog_args);
-our (@dirs,$ebwt,$tx_idx,$gtf,$DESTDIR,@sub_select,@excluded,$extra,$email,@fastq_dir);
+our (@dirs,$ebwt,$tx_idx,$gtf,$DESTDIR,@sub_select,@excluded,$extra,$email,@fastq_dir,$paired);
 our ($cpu,$queue,$pe);
 
 our $aligner = 'tophat';
@@ -188,8 +190,12 @@ sub processFastqDirs {
     ### Need to test if $dir is really a dir
     opendir(my $dh, $dir) || die;
     for(readdir $dh) {
-      if ($_=~/(.+)\.(fastq|fq)/){
-	push @{$res_p->{$1}}, "$dir/$_";
+      if ($_=~/(.+)_(1|2)_.+\.(fastq|fq)/){
+	if ($paired){
+	  push @{$res_p->{$1}->{$2}}, "$dir/$_";
+	} else {
+	  push @{$res_p->{$1}}, "$dir/$_";
+	}
       }
     }
     closedir $dh;
@@ -268,8 +274,6 @@ sub createAlnJobs {
   
   my %jobs;
   for my $exp (keys %res){
-    my @fastq = @{$res{$exp}};
-    
     my $res_dir = "$DESTDIR/tophat_aln/$exp";
     make_path($res_dir) unless $dryrun;
     
@@ -281,7 +285,12 @@ sub createAlnJobs {
     $align   .= " --no-coverage-search";
     $align   .= " $extra";
     $align   .= " $ebwt";
-    $align   .= " ".join(",",@{$res{$exp}});
+    
+    if ($paired){
+      $align .= " ".join(",",@{$res{$exp}->{1}})." ".join(",",@{$res{$exp}->{2}});;
+    } else {
+      $align   .= " ".join(",",@{$res{$exp}});
+    }
     
     $jobs{$exp} = $align;
   }
@@ -348,6 +357,8 @@ sub init {
 	     'GTF=s'                 => \$gtf,
 	     'destdir=s'             => \$DESTDIR,
 	     'fastq_dirs=s{,}'       => \@fastq_dir,	     
+	     
+	     'paired'                => \$paired,
 
 	     'excluded=s{,}'         => \@excluded,
 	     'sub_selection=s{,}'    => \@sub_select,
