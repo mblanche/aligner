@@ -141,7 +141,7 @@ our $aligner = 'tophat';
 
 MAIN:{
   init();
-  create_tophat_idx() if $gtf;  
+  my %idxJID = create_tophat_idx() if $gtf;  
   testIndex();
   my %res;
 
@@ -149,7 +149,7 @@ MAIN:{
   getSample2Files(\%res) if @dirs;
   processFastqDirs(\%res) if @fastq_dir;
 
-  qsub_align(%res);
+  qsub_align(\%res,\%idxJID);
   
   print("Results will be found in $DESTDIR\n") unless $dryrun;
   exit 0;
@@ -172,8 +172,9 @@ sub create_tophat_idx{
   my $fname = $fh->filename;
   print $fh <DATA>;
   close $fh;
-  system("tophat -G $gtf --transcriptome-index=$tx_idx $ebwt $fname >$tx_idx_d/tx.log 2>&1");
-  remove_tree 'tophat_out';
+  #system("tophat -G $gtf --transcriptome-index=$tx_idx $ebwt $fname >$tx_idx_d/tx.log 2>&1");
+  my %idxJID  = spinQsub({common => "tophat -G $gtf --transcriptome-index=$tx_idx $ebwt $fname >$tx_idx_d/tx.log 2>&1"},'idx');
+  my %rmJID = spinQsub({common => 'rm -rf tophat_out'},'cleanup',\%idxJID);
 }
 
 sub testIndex{
@@ -181,10 +182,12 @@ sub testIndex{
   my $ori_ebwt = $ebwt;
 
   ## Expand tilde to full path, 
-  $tx_idx =~ s/~/$ENV{HOME}/;
-  $ebwt =~ s/~/$ENV{HOME}/;
+  $tx_idx =~ s/~\//$ENV{HOME}/;
+  $tx_idx =~ s/~(.+\/)/dirname($ENV{HOME})."\/$1"/e;
+  $ebwt =~ s/~\//$ENV{HOME}/;
+  $ebwt =~ s/~(.+\/)/dirname($ENV{HOME})."\/$1"/e;
   
-  unless (-e "$tx_idx.gff"){
+  unless (-e "$tx_idx.gff" || $gtf){
     if (exists $ENV{TOPHAT_TX_INDEXES}){
       $ENV{TOPHAT_TX_INDEXES} =~ s/~/$ENV{HOME}/;
       $tx_idx = -e "$ENV{TOPHAT_TX_INDEXES}/$tx_idx.gff" ? 
@@ -204,10 +207,11 @@ sub testIndex{
     }
   }
   
-  die "Can't find tophat transcript index $ori_tx_idx\n" unless $tx_idx;
+  die "Can't find tophat transcript index $ori_tx_idx\n" unless $tx_idx ;
   die "Can't find bowtie2 transcript index $ori_ebwt\n" unless $ebwt;
   
 }
+
 sub processFastqDirs {
   my $res_p = shift;
   
@@ -226,6 +230,7 @@ sub processFastqDirs {
     closedir $dh;
   }
 }
+
 sub getSample2Files {
   my $res_p = shift;
   
@@ -272,18 +277,19 @@ sub getSample2Files {
 }
 
 sub qsub_align{
-  my %res = @_;
-  my %jobs = createAlnJobs(\%res);
+  my $res_p = shift();
+  my $idxJID_p = shift();
+  my %jobs = createAlnJobs($res_p);
   ## Sending the alignment to the SGE queue
   print ">>> Aligning the fasq files\n>>>>>>>>>>\n\n";
-  my %alnJID = spinQsub(\%jobs,'align') unless $debug;
+  my %alnJID = spinQsub(\%jobs,'align',$idxJID_p) unless $debug;
 
   my $bam_dir = "$DESTDIR/bam";
   make_path($bam_dir) unless $dryrun;
   
   symlink("../tophat_aln/$_/accepted_hits.bam","$bam_dir/$_.bam") for keys %jobs;
   
-  %jobs = indexBams(\%res,$bam_dir);
+  %jobs = indexBams($res_p,$bam_dir);
   my %idxJID = spinQsub(\%jobs,'index',\%alnJID) unless $debug;
 }
 
@@ -335,10 +341,12 @@ sub spinQsub {
   my (%job_ids,$i);
   for my $exp (keys %jobs){
     
+    
     my $com = "qsub";
-    $com   .= " -hold_jid ".join(",",@{$holders{$exp}}) if exists($holders{$exp});
+    $com   .= " -hold_jid ".join(",",(keys %holders)[0] eq 'common'?map{@{$_}} values(%holders):@{$holders{$exp}})
+      if exists($holders{$exp}) || exists($holders{common});
     $com   .= " -m e -M $email" if $email;
-    $com   .= " -l mem_free=4G";
+    $com   .= " -l mem_free=5G";
     $com   .= " -j y -o $sge_out";
     $com   .= " -pe $pe $cpu";
     $com   .= " -q $queue";
