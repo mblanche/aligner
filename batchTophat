@@ -131,6 +131,7 @@ use Getopt::Long;
 use Pod::Usage;
 use Cwd;
 use File::Spec::Functions;
+use File::Temp;
 
 our ($man,$help,$debug,$dryrun,@prog_args);
 our (@dirs,$ebwt,$tx_idx,$gtf,$DESTDIR,@sub_select,@excluded,$extra,$email,@fastq_dir,$paired);
@@ -140,8 +141,11 @@ our $aligner = 'tophat';
 
 MAIN:{
   init();
+  create_tophat_idx() if $gtf;  
   testIndex();
   my %res;
+
+  
   getSample2Files(\%res) if @dirs;
   processFastqDirs(\%res) if @fastq_dir;
 
@@ -149,6 +153,27 @@ MAIN:{
   
   print("Results will be found in $DESTDIR\n") unless $dryrun;
   exit 0;
+}
+
+sub create_tophat_idx{
+  print "Creating the transcript index for TopHat splice site alignments\n"; 
+  my ($idx,$tx_idx_d);
+  if($tx_idx){
+    ($idx,$tx_idx_d) = fileparse($tx_idx);
+  } else {
+    $tx_idx_d = "tophat_tx_idx";
+    ($idx) = fileparse($gtf,'.gtf');
+    $tx_idx = "$ENV{PWD}/$tx_idx_d/$idx";
+  }
+  ### create a little temp fastq file just to fire up tophat
+  make_path($tx_idx_d);
+  ### create a little temp fastq file just to fire up tophat
+  my $fh = File::Temp->new(SUFFIX => ".fastq");
+  my $fname = $fh->filename;
+  print $fh <DATA>;
+  close $fh;
+  system("tophat -G $gtf --transcriptome-index=$tx_idx $ebwt $fname >$tx_idx_d/tx.log 2>&1");
+  remove_tree 'tophat_out';
 }
 
 sub testIndex{
@@ -280,7 +305,6 @@ sub createAlnJobs {
     my $align = "tophat";
     $align   .= " -p$cpu";
     $align   .= " --transcriptome-index=$tx_idx" if $tx_idx;
-    $align   .= " --GTF=$gtf" if $gtf;
     $align   .= " -o $res_dir";
     $align   .= " --no-coverage-search";
     $align   .= " $extra";
@@ -386,4 +410,21 @@ sub init {
   
   print STDERR "##########RUNNING IN DEBUGING MODE##########\n" if $debug;
 }
-__END__
+__DATA__
+@ILLUMINA-C4D679_0026_FC:3:1:11884:1072#0/1
+CTCGGGTATACATCAAGTGATGGATTATGCAAATTTTGGG
++ILLUMINA-C4D679_0026_FC:3:1:11884:1072#0/1
+f[dfdd`\Jcfffff]cOdc^ad[IcdaJdfadfffff]a
+@ILLUMINA-C4D679_0026_FC:3:1:16648:1081#0/1
+GGACATCTACAAGCCAGTTGACAAAGTCGAACCCGGTACC
++ILLUMINA-C4D679_0026_FC:3:1:16648:1081#0/1
+acfbfffc^fYc_ffdf]cfffcfc[bSKcaaadKS^ccc
+@ILLUMINA-C4D679_0026_FC:3:1:9324:1106#0/1
+CAGCAGTACCAATAACTCCAATAATATGAAGGATCAAGTC
++ILLUMINA-C4D679_0026_FC:3:1:9324:1106#0/1
+f_fggfggYggcgagfdggdgdcggaf^[addfffcffRd
+@ILLUMINA-C4D679_0026_FC:3:1:10004:1101#0/1
+TCGAAAGATGAAAAGAACTTTGAAAAGAGAGTTAAATAGT
++ILLUMINA-C4D679_0026_FC:3:1:10004:1101#0/1
+gfcagg_d^ggg_g^f`cda\dffcaa_S\afaead\YYW
+
