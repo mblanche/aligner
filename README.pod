@@ -23,7 +23,7 @@
 
   --dryrun          print the jobs that will be sent to SGE
 
- Every options names can be abreviated to their smaller unique value (ie: -dir/--directories, -de/--destdir)
+ Every options names can be abbreviated to their smaller unique value (ie: -dir/--directories, -de/--destdir)
 
 =head1 REQUIRED ARGUMENTS
 
